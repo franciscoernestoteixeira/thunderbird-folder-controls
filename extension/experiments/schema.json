@@ -1,0 +1,28 @@
+[
+  {
+    "namespace": "folderControls",
+    "functions": [
+      {
+        "name": "setExpanded",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "name": "tabId",
+            "type": "integer"
+          },
+          {
+            "name": "expanded",
+            "type": "boolean"
+          }
+        ]
+      },
+      {
+        "name": "initialize",
+        "type": "function",
+        "async": true,
+        "parameters": []
+      }
+    ]
+  }
+]
