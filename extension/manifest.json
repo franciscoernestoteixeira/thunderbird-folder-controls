@@ -1,13 +1,13 @@
 {
   "manifest_version": 2,
-  "name": "Thunderbird Folder Controls",
-  "version": "0.1.2",
-  "description": "Expand or collapse the folder tree in the current mail tab. Experimental preview.",
+  "name": "Folder Expand/Collapse All",
+  "version": "0.1.5",
+  "description": "Expand or collapse all accounts and nested folders in the current mail tab.",
   "browser_specific_settings": {
     "gecko": {
       "id": "folder-controls@franciscoernestoteixeira.github.io",
       "strict_min_version": "157.0",
-      "strict_max_version": "157.*"
+      "strict_max_version": "158.*"
     }
   },
   "permissions": [

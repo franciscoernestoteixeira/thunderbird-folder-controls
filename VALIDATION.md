@@ -2,7 +2,7 @@
 
 Tested application: Thunderbird 157.0.1, build 20261001134409, macOS Apple Silicon (aarch64-gcc3), platform 157.0. Tests used a separate disposable profile, never the normal email profile.
 
-## Current version: passed
+## Functional validation
 
 - Four automated Node tests pass. The production selector is asserted to exclude mode containers; traversal tests cover hidden descendants, multiple modeled roots, repeat/idempotence, empty trees, incompatible methods and non-mail tab rejection.
 - Packaged XPI installed temporarily in the actual Thunderbird application.
@@ -22,7 +22,7 @@ The manifest minimum is 157.0: a minimum of 157.0.1 was rejected by the actual a
 
 ## Remaining limits
 
-Not yet tested: real IMAP/offline accounts, very large trees, assigned keyboard shortcuts, unified/unread/favorite modes, new windows, final-version disable/re-enable, and restart persistence. Native collapse may promote selection from a descendant to its ancestor. No claim of compatibility with other builds or operating systems. This remains an experimental 0.1.0 preview.
+Not yet tested: real IMAP/offline accounts, very large trees, assigned keyboard shortcuts, unified/unread/favorite modes, new windows, final-version disable/re-enable, and restart persistence. Native collapse may promote selection from a descendant to its ancestor. No claim of compatibility with other builds or operating systems. The user confirmed successful operation in their primary Thunderbird profile.
 
 ## Reproduce
 
@@ -32,3 +32,19 @@ For integration tests, use only a disposable profile with two local accounts and
 ## 0.1.2 visibility check
 
 In the real Thunderbird 157.0.1 disposable profile: mail tab buttons visible=true, preferences tab visible=false, switching back visible=true. Both titles verified as Expand All Folders and Collapse All Folders. Four unit tests passed. Added tab-monitor registration and cleanup.
+
+## 0.1.3 metadata update
+
+Renamed display name to Folder Expand/Collapse All; removed Experimental preview from the add-on description at the user’s request. User reports successful operation in their main profile. Experiment API remains the technical implementation; this is distinct from the user-facing release label. No broader compatibility claim added.
+
+## 0.1.5 — Thunderbird 158.0.1 compatibility (2026-10-26)
+
+- Manifest: version 0.1.5, maximum 158.*, existing minimum 157.0 and add-on ID preserved. Existing uncommitted display-name and toolbar-label improvements were preserved in this release.
+- Inspected installed `/Applications/Thunderbird.app/Contents/Resources/omni.ja`: folder-tree-row.mjs, tree-listbox-mixin.mjs, about3Pane.js, mailTabs.js, tabmail.js, parent/ext-mailTabs.js and ExtensionSupport.sys.mjs. The row selector, expandRow/collapseRow, chromeBrowser.contentWindow, currentAbout3Pane and tab-monitor/window-listener APIs remain available. No compatibility code change was required.
+- Seven Node tests passed: traversal order/idempotence, unsupported tree, non-mail rejection, successful Experiment mail-tab resolution, missing pane, and manifest compatibility/identity.
+- Real Thunderbird 158.0.1, build 20261019221403, platform 158.0.1, macOS: installed packaged XPI temporarily in a new disposable profile with two local accounts, each containing Parent/Child. Twenty collapse/expand cycles passed over four branch rows. Both labeled buttons were visible before the application menu; hidden on a preferences tab and visible again on return to mail.
+- AddonManager reported version 0.1.5, isCompatible=true, isActive=true, appDisabled=false.
+- Packaging tests verify exact allowlist, manifest identity, byte-for-byte source contents, ZIP integrity and reproducible output.
+- No normal mail profile was modified. Not validated in 158: normal-profile permanent upgrade, restart persistence, real IMAP/offline accounts, context-menu invocation, assigned shortcuts, alternate folder modes, multiple windows, or other operating systems.
+
+Reproduce integration: create an empty disposable profile with `folderControls.disposableTest=true` and `marionette.port=2828` in user.js. Launch installed Thunderbird with `-no-remote -profile /absolute/disposable/profile --marionette --remote-allow-system-access`. Run `python3 tests/thunderbird-live.py --profile /absolute/disposable/profile` after packaging. The test checks the runtime profile and opt-in before creating local fixture accounts. Never point this test at your normal mail profile.

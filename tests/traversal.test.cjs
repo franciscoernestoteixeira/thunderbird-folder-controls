@@ -36,3 +36,27 @@ test('experiment rejects non-mail tabs', async () => {
   const api = new sandbox.folderControls().getAPI({callOnClose(){}, extension:{tabManager:{get:()=>({nativeTab:{mode:{name:'calendar'}}})}}});
   await assert.rejects(api.folderControls.setExpanded(1,true), /mail tab/);
 });
+test('experiment resolves the native mail tab tree and reports changed rows', async () => {
+  const tree = fixture([true, true, false]);
+  let closed;
+  sandbox.ChromeUtils = {importESModule: () => ({ExtensionSupport:{registerWindowListener(){}, unregisterWindowListener(){}}})};
+  const api = new sandbox.folderControls().getAPI({callOnClose(value){closed=value;}, extension:{id:'test',tabManager:{get:id=>{
+    assert.equal(id,42);
+    return {nativeTab:{mode:{name:'mail3PaneTab'},chromeBrowser:{contentWindow:{document:{getElementById:id=>{assert.equal(id,'folderTree');return tree;}}}}}};
+  }}}});
+  assert.equal(await api.folderControls.setExpanded(42,true),2);
+  assert.equal(await api.folderControls.setExpanded(42,true),0);
+  assert.equal(await api.folderControls.setExpanded(42,false),3);
+  closed.close();
+});
+test('experiment rejects missing native pane methods', async () => {
+  const api = new sandbox.folderControls().getAPI({callOnClose(){},extension:{id:'test',tabManager:{get:()=>({nativeTab:{mode:{name:'mail3PaneTab'}}})}}});
+  await assert.rejects(api.folderControls.setExpanded(42,true),/Unsupported Thunderbird folder tree/);
+});
+test('release retains extension identity and declares Thunderbird 158 compatibility', () => {
+  const manifest=JSON.parse(fs.readFileSync('extension/manifest.json','utf8'));
+  assert.equal(manifest.browser_specific_settings.gecko.id,'folder-controls@franciscoernestoteixeira.github.io');
+  assert.equal(manifest.browser_specific_settings.gecko.strict_max_version,'158.*');
+  assert.equal(manifest.browser_specific_settings.gecko.strict_min_version,'157.0');
+  assert.ok(manifest.experiment_apis.folderControls);
+});

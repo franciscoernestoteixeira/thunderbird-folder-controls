@@ -11,8 +11,8 @@ async function run(id, tab) {
     if (!tab) throw new Error('Select a mail tab first');
     await browser.folderControls.setExpanded(tab.id, actions.get(id));
   } catch (error) {
-    console.error('Thunderbird Folder Controls:', error);
-    await browser.notifications.create({ type: 'basic', title: 'Folder Controls', message: error.message });
+    console.error('Folder Expand/Collapse All:', error);
+    await browser.notifications.create({ type: 'basic', title: 'Folder Expand/Collapse All', message: error.message });
   }
 }
 browser.menus.onClicked.addListener((info, tab) => run(info.menuItemId, tab));

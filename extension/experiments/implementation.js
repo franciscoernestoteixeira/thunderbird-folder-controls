@@ -31,7 +31,7 @@ var folderControls = class extends ExtensionCommon.ExtensionAPI {
         button.id = "folder-controls-" + (expanded ? "expand" : "collapse");
         button.className = "button toolbar-button";
         button.setAttribute("type", "button");
-        button.style.cssText = "min-width:28px;width:28px;height:28px;padding:4px;flex:none;";
+        button.style.cssText = "min-width:28px;width:auto;height:28px;padding:4px 8px;flex:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;";
         button.title = expanded ? "Expand All Folders" : "Collapse All Folders";
         button.setAttribute("aria-label", button.title);
         const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -43,6 +43,9 @@ var folderControls = class extends ExtensionCommon.ExtensionAPI {
         path.setAttribute("fill", "none"); path.setAttribute("stroke", "currentColor");
         path.setAttribute("stroke-width", "1.4");
         svg.append(path); button.append(svg);
+        const label = document.createElementNS("http://www.w3.org/1999/xhtml", "span");
+        label.textContent = expanded ? "Expand All" : "Collapse All";
+        button.append(label);
         button.addEventListener("click", () => {
           try {
             const tabmail = document.getElementById("tabmail");
@@ -61,7 +64,7 @@ var folderControls = class extends ExtensionCommon.ExtensionAPI {
           const visible = tab?.mode?.name === "mail3PaneTab";
           for (const button of localButtons) {
             button.hidden = !visible;
-            button.style.display = visible ? "" : "none";
+            button.style.display = visible ? "inline-flex" : "none";
           }
         },
         onTabTitleChanged() {}, onTabOpened() {}, onTabClosing() {},
