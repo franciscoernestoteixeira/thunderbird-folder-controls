@@ -22,6 +22,12 @@
         "type": "function",
         "async": true,
         "parameters": []
+      },
+      {
+        "name": "diagnose",
+        "type": "function",
+        "async": true,
+        "parameters": []
       }
     ]
   }

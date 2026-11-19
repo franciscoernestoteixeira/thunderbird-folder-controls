@@ -48,3 +48,18 @@ Renamed display name to Folder Expand/Collapse All; removed Experimental preview
 - No normal mail profile was modified. Not validated in 158: normal-profile permanent upgrade, restart persistence, real IMAP/offline accounts, context-menu invocation, assigned shortcuts, alternate folder modes, multiple windows, or other operating systems.
 
 Reproduce integration: create an empty disposable profile with `folderControls.disposableTest=true` and `marionette.port=2828` in user.js. Launch installed Thunderbird with `-no-remote -profile /absolute/disposable/profile --marionette --remote-allow-system-access`. Run `python3 tests/thunderbird-live.py --profile /absolute/disposable/profile` after packaging. The test checks the runtime profile and opt-in before creating local fixture accounts. Never point this test at your normal mail profile.
+
+## 0.1.6 — Thunderbird 160 compatibility and anti-regression (2026-11-19)
+
+Reported failure: the add-on stopped working after updating to Thunderbird 160.0, the third such break across updates. Root cause is the Experiment API version ceiling, not the traversal logic: version 0.1.5 declared `strict_max_version` `158.*`, so Thunderbird 159/160 marked the add-on incompatible and disabled it. The internal folder-tree contract is unchanged: the current comm-central `tree-listbox-mixin.mjs` still uses `row.classList.contains("children")`, the `collapsed` class and `expandRow`/`collapseRow`, and the `li[is="folder-tree-row"]` custom element remains.
+
+Changes in 0.1.6:
+- Manifest: version 0.1.6, `strict_max_version` widened to `162.*`, minimum `157.0` and add-on ID preserved so installation updates the existing add-on. The wider ceiling keeps the add-on enabled across routine monthly releases (159 through 162) instead of disabling it on each bump.
+- Implementation: every internal hook is resolved through one checked path. A missing hook now raises a message that names it (tabmail, about3Pane, folderTree, chromeBrowser.contentWindow, expandRow/collapseRow) instead of a generic or silent failure. Added a read-only `diagnose()` experiment function that returns the state of every hook, separating window-level hooks (always present) from pane-level hooks (present only on a mail tab).
+- Probe: `tests/contract-probe.py`, a read-only Marionette check that prints a PASS/FAIL table for every internal hook and exits non-zero when any is missing. It creates no accounts, installs no add-on and changes no tree state; run it against a disposable profile after each Thunderbird update.
+- Tests: nine Node tests pass, covering traversal order/idempotence, unsupported tree, non-mail rejection, the Experiment mail-tab resolution, the named missing-pane hook, `resolveTree` per-hook messages, `inspect`/`diagnose` reporting the broken hook, and manifest/schema identity (version 0.1.6, ceiling 162.*, `diagnose` present). Packaging test passes: exact four-file allowlist, reproducible bytes, ZIP integrity, manifest identity.
+
+Not validated here (requires the installed application, to be run by the user): temporary and permanent install in Thunderbird 160.0, twenty collapse/expand cycles, toolbar visibility and hide-on-non-mail-tab, context-menu invocation, AddonManager isCompatible/isActive, restart persistence, real IMAP/offline accounts, alternate folder modes, multiple windows, other operating systems. Run `tests/contract-probe.py` and `tests/thunderbird-live.py` on a disposable Thunderbird 160.0 profile to cover these.
+
+Reproduce unit and packaging checks:
+`node --test tests/*.test.cjs` and `python3 scripts/package.py` and `python3 -m unittest discover -s tests -p "test_*.py"`.

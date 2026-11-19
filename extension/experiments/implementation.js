@@ -1,4 +1,4 @@
-/* global ExtensionCommon */
+/* global ExtensionCommon, ChromeUtils, Services */
 // Kept as a plain function so the exact production traversal can be unit tested.
 function setExpanded(tree, expanded) {
   if (!tree || typeof tree.expandRow !== 'function' || typeof tree.collapseRow !== 'function') {
@@ -15,6 +15,51 @@ function setExpanded(tree, expanded) {
   }
   return changed;
 }
+
+// Single source of truth for every internal Thunderbird hook this add-on uses.
+// inspect() checks each one so that a future Thunderbird change is reported by
+// the exact hook name (diagnose / contract probe) instead of a silent break.
+// Window-level hooks exist on any messenger window. Pane-level hooks only exist
+// while a mail (3-pane) tab is active; they are null, not failed, on other tabs.
+const WINDOW_HOOKS = ['toolbarAnchor', 'tabmail', 'registerTabMonitor'];
+const PANE_HOOKS = ['about3Pane', 'folderTree', 'expandRow', 'collapseRow', 'rowSelector'];
+function inspect(window) {
+  const checks = {};
+  const document = window && window.document;
+  const anchor = document && document.getElementById('button-appmenu');
+  checks.toolbarAnchor = !!anchor;
+  const tabmail = document && document.getElementById('tabmail');
+  checks.tabmail = !!tabmail;
+  checks.registerTabMonitor = typeof (tabmail && tabmail.registerTabMonitor) === 'function';
+  const pane = tabmail && tabmail.currentAbout3Pane;
+  checks.about3Pane = !!pane;
+  const tree = pane && pane.document.getElementById('folderTree');
+  checks.folderTree = !!tree;
+  checks.expandRow = typeof (tree && tree.expandRow) === 'function';
+  checks.collapseRow = typeof (tree && tree.collapseRow) === 'function';
+  let rowSelector = false;
+  if (tree) {
+    try { tree.querySelectorAll('li[is="folder-tree-row"].children'); rowSelector = true; } catch (e) { rowSelector = false; }
+  }
+  checks.rowSelector = rowSelector;
+  return checks;
+}
+
+// Resolve the folder tree of a messenger window, failing with the exact missing
+// hook so breakage after a Thunderbird update is self-describing.
+function resolveTree(document) {
+  const tabmail = document.getElementById('tabmail');
+  if (!tabmail) throw new Error('Thunderbird mudou: elemento tabmail ausente');
+  if (tabmail.currentTabInfo && tabmail.currentTabInfo.mode && tabmail.currentTabInfo.mode.name !== 'mail3PaneTab') {
+    throw new Error('Select a mail tab first');
+  }
+  const pane = tabmail.currentAbout3Pane;
+  if (!pane) throw new Error('Thunderbird mudou: about3Pane ausente');
+  const tree = pane.document.getElementById('folderTree');
+  if (!tree) throw new Error('Thunderbird mudou: elemento folderTree ausente');
+  return tree;
+}
+
 var folderControls = class extends ExtensionCommon.ExtensionAPI {
   getAPI(context) {
     const { ExtensionSupport } = ChromeUtils.importESModule("resource:///modules/ExtensionSupport.sys.mjs");
@@ -24,7 +69,12 @@ var folderControls = class extends ExtensionCommon.ExtensionAPI {
     function watch(window) {
       const document = window.document;
       const anchor = document.getElementById("button-appmenu");
-      if (!anchor || document.getElementById("folder-controls-expand")) return;
+      if (!anchor) {
+        // Toolbar anchor changed: surface it instead of disappearing silently.
+        console.error("Folder Expand/Collapse All: Thunderbird mudou, âncora button-appmenu ausente");
+        return;
+      }
+      if (document.getElementById("folder-controls-expand")) return;
       const localButtons = [];
       for (const expanded of [true, false]) {
         const button = document.createElementNS("http://www.w3.org/1999/xhtml", "button");
@@ -48,9 +98,7 @@ var folderControls = class extends ExtensionCommon.ExtensionAPI {
         button.append(label);
         button.addEventListener("click", () => {
           try {
-            const tabmail = document.getElementById("tabmail");
-            if (tabmail.currentTabInfo?.mode?.name !== "mail3PaneTab") throw new Error("Select a mail tab first");
-            setExpanded(tabmail.currentAbout3Pane?.document.getElementById("folderTree"), expanded);
+            setExpanded(resolveTree(document), expanded);
           } catch (error) { window.alert(error.message); }
         });
         anchor.before(button);
@@ -61,7 +109,7 @@ var folderControls = class extends ExtensionCommon.ExtensionAPI {
       const monitor = {
         monitorName: listenerId,
         onTabSwitched(tab) {
-          const visible = tab?.mode?.name === "mail3PaneTab";
+          const visible = tab && tab.mode && tab.mode.name === "mail3PaneTab";
           for (const button of localButtons) {
             button.hidden = !visible;
             button.style.display = visible ? "inline-flex" : "none";
@@ -78,7 +126,7 @@ var folderControls = class extends ExtensionCommon.ExtensionAPI {
       onLoadWindow: watch,
       onUnloadWindow(window) {
         const entry = monitors.get(window);
-        entry?.tabmail.unregisterTabMonitor(entry.monitor);
+        if (entry) entry.tabmail.unregisterTabMonitor(entry.monitor);
         monitors.delete(window);
         for (const button of buttons) if (button.ownerDocument === window.document) buttons.delete(button);
       }
@@ -94,11 +142,27 @@ var folderControls = class extends ExtensionCommon.ExtensionAPI {
       async initialize() {},
       async setExpanded(tabId, expanded) {
         const tab = context.extension.tabManager.get(tabId);
-        if (tab.nativeTab.mode?.name !== 'mail3PaneTab') {
+        if (tab.nativeTab.mode && tab.nativeTab.mode.name !== 'mail3PaneTab') {
           throw new Error('Select a mail tab first');
         }
-        const pane = tab.nativeTab.chromeBrowser?.contentWindow;
-        return setExpanded(pane?.document.getElementById('folderTree'), expanded);
+        const win = tab.nativeTab.chromeBrowser && tab.nativeTab.chromeBrowser.contentWindow;
+        if (!win) throw new Error('Thunderbird mudou: chromeBrowser.contentWindow ausente');
+        return setExpanded(win.document.getElementById('folderTree'), expanded);
+      },
+      // Read-only contract report. Used by the post-update probe and available to
+      // the background page. Names every internal hook that is currently broken.
+      async diagnose() {
+        const window = Services.wm.getMostRecentWindow('mail:3pane');
+        const checks = inspect(window);
+        const missing = Object.keys(checks).filter(name => checks[name] === false);
+        return {
+          version: Services.appinfo.version,
+          platform: Services.appinfo.platformVersion,
+          windowHooks: WINDOW_HOOKS,
+          paneHooks: PANE_HOOKS,
+          checks,
+          missing
+        };
       }
     } };
   }

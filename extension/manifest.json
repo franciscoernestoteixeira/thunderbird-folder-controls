@@ -1,13 +1,13 @@
 {
   "manifest_version": 2,
   "name": "Folder Expand/Collapse All",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Expand or collapse all accounts and nested folders in the current mail tab.",
   "browser_specific_settings": {
     "gecko": {
       "id": "folder-controls@franciscoernestoteixeira.github.io",
       "strict_min_version": "157.0",
-      "strict_max_version": "158.*"
+      "strict_max_version": "162.*"
     }
   },
   "permissions": [
